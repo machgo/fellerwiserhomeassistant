@@ -104,6 +104,7 @@ class FellerLight(LightEntity):
         self._brightness = None
         self._host = host
         self._apikey = apikey
+        self._type = data["type"]
 
     @property
     def name(self) -> str:
@@ -134,10 +135,14 @@ class FellerLight(LightEntity):
 
     @property
     def color_mode(self) -> str | None:
+        if self._type == "onoff":
+            return "onoff"
         return "brightness"
     
     @property
     def supported_color_modes(self) -> set | None:
+        if self._type == "onoff":
+            return {"onoff"}
         return {"brightness"}
 
 
