@@ -44,7 +44,15 @@ async def hello(lights, hass, host, apikey):
             data = json.loads(result)     
             # {"load":{"id":6,"state":{"bri":10000,"flags":{"over_current":0,"fading":0,"noise":0,"direction":0,"over_temperature":0}}}}
 
-            if data["load"]["state"]["flags"]["fading"] == 0:
+            #dim
+            if "flags" in data["load"]["state"]:
+                if data["load"]["state"]["flags"]["fading"] == 0:
+                    for l in lights:
+                        if l.unique_id == "light-"+str(data["load"]["id"]):
+                            _LOGGER.info("found entity to update")
+                            l.updateExternal(data["load"]["state"]["bri"])
+            #onoff
+            else:
                 for l in lights:
                     if l.unique_id == "light-"+str(data["load"]["id"]):
                         _LOGGER.info("found entity to update")
@@ -72,6 +80,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     lights= []
     for value in loads["data"]:
         if value["type"] == "dim":
+            lights.append(FellerLight(value, host, apikey))
+        if value["type"] == "onoff":
             lights.append(FellerLight(value, host, apikey))
 
     asyncio.get_event_loop().create_task(hello(lights, hass, host, apikey))
