@@ -132,6 +132,15 @@ class FellerLight(LightEntity):
     def should_poll(self) -> bool | None:
         return False
 
+    @property
+    def color_mode(self) -> str | None:
+        return "brightness"
+    
+    @property
+    def supported_color_modes(self) -> set | None:
+        return {"brightness"}
+
+
     def turn_on(self, **kwargs: Any) -> None:
         """Instruct the light to turn on.
 
@@ -139,11 +148,16 @@ class FellerLight(LightEntity):
         brightness control.
         """
         self._brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
+        convertedBrightness = round(self._brightness*39.22)
+        if convertedBrightness > 10000:
+            convertedBrightness = 10000
+
+
         ip = self._host
-        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'bri': 10000})
+        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'bri': convertedBrightness})
         _LOGGER.info(response.json())
         self._state = True
-        self._brightness = response.json()["data"]["target_state"]["bri"]
+        self._brightness = response.json()["data"]["target_state"]["bri"]/39.22
 
 
     def turn_off(self, **kwargs: Any) -> None:
@@ -153,7 +167,7 @@ class FellerLight(LightEntity):
         _LOGGER.info(response.json())
         # {'data': {'id': 6, 'target_state': {'bri': 0}}, 'status': 'success'}
         self._state = False
-        self._brightness = response.json()["data"]["target_state"]["bri"]
+        self._brightness = response.json()["data"]["target_state"]["bri"]/39.22
 
     def updatestate(self):
         ip = self._host
@@ -177,10 +191,10 @@ class FellerLight(LightEntity):
             self._state = True
         else:
             self._state = False
-        self._brightness = load["data"]["state"]["bri"]
+        self._brightness = load["data"]["state"]["bri"]/39.22
     
     def updateExternal(self, brightness):
-        self._brightness = brightness
+        self._brightness = brightness/39.22
         if self._brightness > 0:
             self._state = True
         else:
