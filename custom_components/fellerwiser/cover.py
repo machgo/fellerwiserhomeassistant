@@ -112,7 +112,7 @@ class FellerCover(CoverEntity):
         response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'level': 0})
         _LOGGER.info(response.json())
         self._state = True
-        self._position = response.json()["data"]["target_state"]["level"]/100
+        self._position = 100-(response.json()["data"]["target_state"]["level"]/100)
 
     def close_cover(self, **kwargs: Any) -> None:
         self._position = kwargs.get(ATTR_POSITION, 100)
@@ -120,15 +120,15 @@ class FellerCover(CoverEntity):
         response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'level': 10000})
         _LOGGER.info(response.json())
         self._state = True
-        self._position = response.json()["data"]["target_state"]["level"]/100
+        self._position = 100-(response.json()["data"]["target_state"]["level"]/100)
 
     def set_cover_position(self, **kwargs: Any) -> None:
         self._position = kwargs.get(ATTR_POSITION, 100)
         ip = self._host
-        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'level': self._position*100})
+        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'level': (100-self._position)*100})
         _LOGGER.info(response.json())
         self._state = True
-        self._position = response.json()["data"]["target_state"]["level"]/100
+        self._position = 100-(response.json()["data"]["target_state"]["level"]/100)
 
     def stop_cover(self, **kwargs: Any) -> None:
         _LOGGER.info("stop not implemented")
@@ -144,7 +144,9 @@ class FellerCover(CoverEntity):
         load = response.json()
         _LOGGER.info(load)
 
-        self._position = load["data"]["state"]["level"]/100
+        #ha: 100 = open, 0 = closed
+        #feller: 10000 = closed, 0 = open
+        self._position = 100-(load["data"]["state"]["level"]/100)
 
         if load["data"]["state"]["moving"] == "stop":
             self._is_closing = False
@@ -156,13 +158,13 @@ class FellerCover(CoverEntity):
             self._is_closing = True
             self._is_opening = False
 
-        if self._position > 0:
+        if self._position >= 100:
             self._is_closed = True
         else:
             self._is_closed = False
     
     def updateExternal(self, position, moving):
-        self._position = position/100
+        self._position = 100-(position/100)
 
         if moving == "stop":
             self._is_closing = False
@@ -174,7 +176,7 @@ class FellerCover(CoverEntity):
             self._is_closing = True
             self._is_opening = False
 
-        if self._position > 0:
+        if self._position >= 100:
             self._is_closed = True
         else:
             self._is_closed = False
