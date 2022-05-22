@@ -44,19 +44,24 @@ async def hello(lights, hass, host, apikey):
             data = json.loads(result)     
             # {"load":{"id":6,"state":{"bri":10000,"flags":{"over_current":0,"fading":0,"noise":0,"direction":0,"over_temperature":0}}}}
 
+            doUpdate = False
+
             #dim
             if "flags" in data["load"]["state"]:
-                if data["load"]["state"]["flags"]["fading"] == 0:
-                    for l in lights:
-                        if l.unique_id == "light-"+str(data["load"]["id"]):
-                            _LOGGER.info("found entity to update")
-                            l.updateExternal(data["load"]["state"]["bri"])
+                if "fading" in data["load"]["state"]["flags"]:
+                    if data["load"]["state"]["flags"]["fading"] == 0:
+                        doUpdate = True
+                else:
+                    doUpdate = True
             #onoff
             else:
+                doUpdate = True
+            if doUpdate:
                 for l in lights:
                     if l.unique_id == "light-"+str(data["load"]["id"]):
                         _LOGGER.info("found entity to update")
                         l.updateExternal(data["load"]["state"]["bri"])
+
 
         ws.close()
 
