@@ -131,7 +131,10 @@ class FellerCover(CoverEntity):
         self._position = 100-(response.json()["data"]["target_state"]["level"]/100)
 
     def stop_cover(self, **kwargs: Any) -> None:
-        _LOGGER.info("stop not implemented")
+        ip = self._host
+        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/ctrl", headers= {'authorization':'Bearer ' + self._apikey}, json={'button': "stop", 'event': 'click'})
+        _LOGGER.info(response.json())
+
 
     def updatestate(self):
         ip = self._host
