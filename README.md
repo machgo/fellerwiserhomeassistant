@@ -1,7 +1,8 @@
 # fellerwiserhomeassistant
 trying to integrate Feller Wiser into HomeAssistant. 
 ## working so far
-- lights
+- control lights
+- control covers
+- live status-updates via websockets
 ## next steps
-- cover
 - scene triggers
