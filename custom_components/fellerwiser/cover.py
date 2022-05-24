@@ -7,7 +7,7 @@ import requests
 import websockets
 import asyncio
 import json
-
+import socket
 
 
 import voluptuous as vol
@@ -28,17 +28,43 @@ _LOGGER = logging.getLogger(__name__)
 
 async def hello(covers, hass, host, apikey):
     ip = host
-    async with websockets.connect("ws://"+ip+"/api", extra_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
-        while True:
-            result =  await ws.recv()
-            _LOGGER.info("Received '%s'" % result)
-            data = json.loads(result)     
-            for l in covers:
-                if l.unique_id == "cover-"+str(data["load"]["id"]):
-                    _LOGGER.info("found entity to update")
-                    l.updateExternal(data["load"]["state"]["level"], data["load"]["state"]["moving"])
-        ws.close()
 
+    while True:
+    # outer loop restarted every time the connection fails
+        _LOGGER.info('Creating new connection...')
+        try:
+            async with websockets.connect("ws://"+ip+"/api", extra_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
+                while True:
+                # listener loop
+                    try:
+                        result = await asyncio.wait_for(ws.recv(), timeout=None)
+                    except (asyncio.TimeoutError, websockets.exceptions.ConnectionClosed):
+                        try:
+                            pong = await ws.ping()
+                            await asyncio.wait_for(pong, timeout=None)
+                            _LOGGER.info('Ping OK, keeping connection alive...')
+                            continue
+                        except:
+                            _LOGGER.info(
+                                'Ping error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+                            await asyncio.sleep(10)
+                            break
+                    _LOGGER.info('Server said > {}'.format(result))
+                    data = json.loads(result)     
+                    for l in covers:
+                        if l.unique_id == "cover-"+str(data["load"]["id"]):
+                            _LOGGER.info("found entity to update")
+                            l.updateExternal(data["load"]["state"]["level"], data["load"]["state"]["moving"])
+        except socket.gaierror:
+            _LOGGER.info(
+                'Socket error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+            await asyncio.sleep(10)
+            continue
+        except ConnectionRefusedError:
+            _LOGGER.info('Nobody seems to listen to this endpoint. Please check the URL.')
+            _LOGGER.info('Retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+            await asyncio.sleep(10)
+            continue
 
 def updatedata(host, apikey):
     #ip = "192.168.0.18"

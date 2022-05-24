@@ -8,6 +8,7 @@ import requests
 import websockets
 import asyncio
 import json
+import socket
 
 
 
@@ -36,6 +37,61 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 
 
 async def hello(lights, hass, host, apikey):
+    ip = host
+
+    while True:
+    # outer loop restarted every time the connection fails
+        _LOGGER.info('Creating new connection...')
+        try:
+            async with websockets.connect("ws://"+ip+"/api", extra_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
+                while True:
+                # listener loop
+                    try:
+                        result = await asyncio.wait_for(ws.recv(), timeout=None)
+                    except (asyncio.TimeoutError, websockets.exceptions.ConnectionClosed):
+                        try:
+                            pong = await ws.ping()
+                            await asyncio.wait_for(pong, timeout=None)
+                            _LOGGER.info('Ping OK, keeping connection alive...')
+                            continue
+                        except:
+                            _LOGGER.info(
+                                'Ping error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+                            await asyncio.sleep(10)
+                            break
+                    _LOGGER.info('Server said > {}'.format(result))
+                    data = json.loads(result)     
+                    doUpdate = False
+
+                    #dim
+                    if "flags" in data["load"]["state"]:
+                        if "fading" in data["load"]["state"]["flags"]:
+                            if data["load"]["state"]["flags"]["fading"] == 0:
+                                doUpdate = True
+                        else:
+                            doUpdate = True
+                    #onoff
+                    else:
+                        doUpdate = True
+                    if doUpdate:
+                        for l in lights:
+                            if l.unique_id == "light-"+str(data["load"]["id"]):
+                                _LOGGER.info("found entity to update")
+                                l.updateExternal(data["load"]["state"]["bri"])
+        except socket.gaierror:
+            _LOGGER.info(
+                'Socket error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+            await asyncio.sleep(10)
+            continue
+        except ConnectionRefusedError:
+            _LOGGER.info('Nobody seems to listen to this endpoint. Please check the URL.')
+            _LOGGER.info('Retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+            await asyncio.sleep(10)
+            continue
+
+
+
+
     ip = host
     async with websockets.connect("ws://"+ip+"/api", extra_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
         while True:
