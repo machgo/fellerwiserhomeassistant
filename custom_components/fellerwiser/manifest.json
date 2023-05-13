@@ -1,6 +1,6 @@
 {
   "domain": "fellerwiser",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Feller Wiser",
   "config_flow": true,
   "documentation": "https://www.home-assistant.io/integrations/fellerwiser",

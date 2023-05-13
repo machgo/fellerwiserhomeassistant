@@ -25,7 +25,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # TODO Store an API object for your platforms to access
     # hass.data[DOMAIN][entry.entry_id] = MyApi(...)
 
-    hass.config_entries.async_setup_platforms(entry, PLATFORMS)
+    # hass.config_entries.async_setup_platforms(entry, PLATFORMS)
+    for platform in PLATFORMS:
+      hass.async_create_task(
+        hass.config_entries.async_forward_entry_setup(entry, platform)
+      )
     _LOGGER.info("----------------------blubb-------------------------")
 
     return True
@@ -33,7 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        hass.data[DOMAIN].pop(entry.entry_id)
+    for platform in PLATFORMS:
+      await hass.config_entries.async_forward_entry_unload(entry, platform)
 
-    return unload_ok
+    return True
