@@ -90,7 +90,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             covers.append(FellerCover(value, host, apikey))
 
     asyncio.get_event_loop().create_task(hello(covers, hass, host, apikey))
-    async_add_entities(covers, True)
+    async_add_entities(covers, False)
 
 
 class FellerCover(CoverEntity):
@@ -132,7 +132,7 @@ class FellerCover(CoverEntity):
     
     @property
     def should_poll(self) -> bool | None:
-        return False
+        return True
 
     def open_cover(self, **kwargs: Any) -> None:
         self._position = kwargs.get(ATTR_POSITION, 100)
