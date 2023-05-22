@@ -26,8 +26,6 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 _LOGGER = logging.getLogger(__name__)
 
-PARALLEL_UPDATES = 1
-
 async def hello(covers, hass, host, apikey):
     ip = host
 
