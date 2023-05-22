@@ -148,7 +148,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             lights.append(FellerLight(value, host, apikey))
 
     asyncio.get_event_loop().create_task(hello(lights, hass, host, apikey))
-    async_add_entities(lights, False)
+    async_add_entities(lights, True)
 
    
 
@@ -194,7 +194,7 @@ class FellerLight(LightEntity):
     
     @property
     def should_poll(self) -> bool | None:
-        return True
+        return False
 
     @property
     def color_mode(self) -> str | None:
