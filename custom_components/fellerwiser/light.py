@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from modulefinder import LOAD_CONST
 
 import requests
 import websockets
