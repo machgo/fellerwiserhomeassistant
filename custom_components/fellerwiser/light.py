@@ -87,6 +87,9 @@ async def hello(lights, hass, host, apikey):
             _LOGGER.info('Retrying connection in {} sec (Ctrl-C to quit)'.format(10))
             await asyncio.sleep(10)
             continue
+        except KeyError:
+            _LOGGER.info("KeyError")
+            continue
 
 
 

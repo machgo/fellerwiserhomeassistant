@@ -64,6 +64,9 @@ async def hello(covers, hass, host, apikey):
             _LOGGER.info('Retrying connection in {} sec (Ctrl-C to quit)'.format(10))
             await asyncio.sleep(10)
             continue
+        except KeyError:
+            _LOGGER.info("KeyError")
+            continue
 
 def updatedata(host, apikey):
     #ip = "192.168.0.18"
