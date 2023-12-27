@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 import voluptuous as vol
+import requests
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
@@ -40,7 +41,11 @@ class PlaceholderHub:
 
     async def authenticate(self, apikey: str) -> bool:
         """Test if we can authenticate with the host."""
-        return True
+        self.apikey = apikey
+
+        resp = requests.get("http://"+self.host+"/api/info", headers= {'authorization':'Bearer ' + self.apikey})
+        
+        return resp.status_code == 200
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -67,7 +72,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     # InvalidAuth
 
     # Return info that you want to store in the config entry.
-    return {"title": "Name of the device"}
+    return {"title": "New Device Registered with Host " + hub.host}
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
