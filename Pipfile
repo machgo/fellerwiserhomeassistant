@@ -1,0 +1,14 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+colorlog = "6.7.0"
+homeassistant = "2023.8.0"
+ruff = "0.1.9"
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"

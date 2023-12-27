@@ -10,7 +10,8 @@
   "homekit": {},
   "dependencies": [],
   "codeowners": [
-    "@machgo"
+    "@machgo",
+    "@maeberli"
   ],
   "iot_class": "local_push"
 }

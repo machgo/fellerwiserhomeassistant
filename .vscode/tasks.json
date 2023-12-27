@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Lintin with Ruff",
+            "type": "shell",
+            "command": "scripts/lint",
+            "problemMatcher": []
+        },
+        {
+            "label": "setup python env",
+            "type": "shell",
+            "command": "scripts/setup",
+            "problemMatcher": []
+        }
+    ]
+}
