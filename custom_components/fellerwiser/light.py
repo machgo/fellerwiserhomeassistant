@@ -12,18 +12,11 @@ import socket
 
 
 import voluptuous as vol
-from .const import (
-    DOMAIN,
-)
 
 # Import the device class from the component that you want to support
 import homeassistant.helpers.config_validation as cv
 from homeassistant.components.light import (ATTR_BRIGHTNESS, PLATFORM_SCHEMA,
                                             LightEntity)
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,11 +48,11 @@ async def hello(lights, hass, host, apikey):
                             continue
                         except:
                             _LOGGER.info(
-                                'Ping error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+                                f'Ping error - retrying connection in {10} sec (Ctrl-C to quit)')
                             await asyncio.sleep(10)
                             break
-                    _LOGGER.info('Server said > {}'.format(result))
-                    data = json.loads(result)     
+                    _LOGGER.info(f'Server said > {result}')
+                    data = json.loads(result)
                     doUpdate = False
 
                     #dim
@@ -79,12 +72,12 @@ async def hello(lights, hass, host, apikey):
                                 l.updateExternal(data["load"]["state"]["bri"])
         except socket.gaierror:
             _LOGGER.info(
-                'Socket error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+                f'Socket error - retrying connection in {10} sec (Ctrl-C to quit)')
             await asyncio.sleep(10)
             continue
         except ConnectionRefusedError:
             _LOGGER.info('Nobody seems to listen to this endpoint. Please check the URL.')
-            _LOGGER.info('Retrying connection in {} sec (Ctrl-C to quit)'.format(10))
+            _LOGGER.info(f'Retrying connection in {10} sec (Ctrl-C to quit)')
             await asyncio.sleep(10)
             continue
         except KeyError:
@@ -99,7 +92,7 @@ async def hello(lights, hass, host, apikey):
         while True:
             result =  await ws.recv()
             _LOGGER.info("Received '%s'" % result)
-            data = json.loads(result)     
+            data = json.loads(result)
             # {"load":{"id":6,"state":{"bri":10000,"flags":{"over_current":0,"fading":0,"noise":0,"direction":0,"over_temperature":0}}}}
 
             doUpdate = False
@@ -150,7 +143,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     asyncio.get_event_loop().create_task(hello(lights, hass, host, apikey))
     async_add_entities(lights, True)
 
-   
+
 
 
 class FellerLight(LightEntity):
@@ -191,7 +184,7 @@ class FellerLight(LightEntity):
     def is_on(self) -> bool | None:
         """Return true if light is on."""
         return self._state
-    
+
     @property
     def should_poll(self) -> bool | None:
         return False
@@ -201,7 +194,7 @@ class FellerLight(LightEntity):
         if self._type == "onoff":
             return "onoff"
         return "brightness"
-    
+
     @property
     def supported_color_modes(self) -> set | None:
         if self._type == "onoff":
@@ -260,7 +253,7 @@ class FellerLight(LightEntity):
         else:
             self._state = False
         self._brightness = load["data"]["state"]["bri"]/39.22
-    
+
     def updateExternal(self, brightness):
         self._brightness = brightness/39.22
         if self._brightness > 0:
