@@ -101,7 +101,9 @@ class FellerCover(CoverEntity):
         self._id = str(data["id"])
         self._is_opening = False
         self._is_closing = False
+        self._is_opened = False
         self._is_closed = False
+        self._is_partially_opened = False
         self._position = None
         self._host = host
         self._apikey = apikey
@@ -127,8 +129,16 @@ class FellerCover(CoverEntity):
         return self._is_closing
 
     @property
+    def is_opened(self) -> bool | None:
+        return self._is_opened
+
+    @property
     def is_closed(self) -> bool | None:
         return self._is_closed
+
+    @property
+    def is_partially_opened(self) -> bool | None:
+        return self._is_partially_opened
     
     @property
     def should_poll(self) -> bool | None:
@@ -190,9 +200,17 @@ class FellerCover(CoverEntity):
             self._is_opening = False
 
         if self._position >= 100:
+            self._is_closed = False
+            self._is_opened = True
+            self._is_partially_opened = False
+        elif self._position <= 0:
             self._is_closed = True
+            self._is_opened = False
+            self._is_partially_opened = False
         else:
             self._is_closed = False
+            self._is_opened = False
+            self._is_partially_opened = True
     
     def updateExternal(self, position, moving):
         self._position = 100-(position/100)
@@ -208,8 +226,16 @@ class FellerCover(CoverEntity):
             self._is_opening = False
 
         if self._position >= 100:
+            self._is_closed = False
+            self._is_opened = True
+            self._is_partially_opened = False
+        elif self._position <= 0:
             self._is_closed = True
+            self._is_opened = False
+            self._is_partially_opened = False
         else:
             self._is_closed = False
+            self._is_opened = False
+            self._is_partially_opened = True
 
         self.schedule_update_ha_state()
