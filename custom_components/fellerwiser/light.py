@@ -9,8 +9,6 @@ import asyncio
 import json
 import socket
 
-
-
 import voluptuous as vol
 from .const import (
     DOMAIN,
@@ -32,7 +30,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required('host'): cv.string,
     vol.Required('apikey'): cv.string,
 })
-
 
 
 async def hello(lights, hass, host, apikey):
@@ -62,7 +59,7 @@ async def hello(lights, hass, host, apikey):
                     data = json.loads(result)     
                     doUpdate = False
 
-                    #dim
+                    #dim/dali
                     if "flags" in data["load"]["state"]:
                         if "fading" in data["load"]["state"]["flags"]:
                             if data["load"]["state"]["flags"]["fading"] == 0:
@@ -91,20 +88,17 @@ async def hello(lights, hass, host, apikey):
             _LOGGER.info("KeyError")
             continue
 
-
-
-
     ip = host
     async with websockets.connect("ws://"+ip+"/api", extra_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
         while True:
             result =  await ws.recv()
             _LOGGER.info("Received '%s'" % result)
-            data = json.loads(result)     
+            data = json.loads(result)
             # {"load":{"id":6,"state":{"bri":10000,"flags":{"over_current":0,"fading":0,"noise":0,"direction":0,"over_temperature":0}}}}
 
             doUpdate = False
 
-            #dim
+            #dim/dali
             if "flags" in data["load"]["state"]:
                 if "fading" in data["load"]["state"]["flags"]:
                     if data["load"]["state"]["flags"]["fading"] == 0:
@@ -120,8 +114,8 @@ async def hello(lights, hass, host, apikey):
                         _LOGGER.info("found entity to update")
                         l.updateExternal(data["load"]["state"]["bri"])
 
-
         ws.close()
+
 
 def updatedata(host, apikey):
     #ip = "192.168.0.18"
@@ -142,15 +136,11 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     lights= []
     for value in loads["data"]:
-        if value["type"] == "dim":
-            lights.append(FellerLight(value, host, apikey))
-        if value["type"] == "onoff":
+        if value["type"] in ["dim", "dali", "onoff"]:
             lights.append(FellerLight(value, host, apikey))
 
     asyncio.get_event_loop().create_task(hello(lights, hass, host, apikey))
     async_add_entities(lights, True)
-
-   
 
 
 class FellerLight(LightEntity):
@@ -158,7 +148,8 @@ class FellerLight(LightEntity):
 
     def __init__(self, data, host, apikey) -> None:
         """Initialize an AwesomeLight."""
-        # {'name': '00005341_0', 'device': '00005341', 'channel': 0, 'type': 'dim', 'id': 14, 'unused': False}
+        # OLD {'name': '00005341_0', 'device': '00005341', 'channel': 0, 'type': 'dim', 'id': 14, 'unused': False}
+        # NEW {'name': '00005341_0', 'device': '00005341', 'channel': 0, 'type': 'dali', 'id': 14, 'unused': False}
 
         self._data = data
         self._name = data["name"]
@@ -169,39 +160,45 @@ class FellerLight(LightEntity):
         self._apikey = apikey
         self._type = data["type"]
 
+
     @property
     def name(self) -> str:
         """Return the display name of this light."""
         return self._name
 
+
     @property
     def unique_id(self):
         return "light-" + self._id
 
+
     @property
     def brightness(self):
         """Return the brightness of the light.
-
         This method is optional. Removing it indicates to Home Assistant
         that brightness is not supported for this light.
         """
         return self._brightness
 
+
     @property
     def is_on(self) -> bool | None:
         """Return true if light is on."""
         return self._state
-    
+
+
     @property
     def should_poll(self) -> bool | None:
         return False
+
 
     @property
     def color_mode(self) -> str | None:
         if self._type == "onoff":
             return "onoff"
         return "brightness"
-    
+
+
     @property
     def supported_color_modes(self) -> set | None:
         if self._type == "onoff":
@@ -211,7 +208,6 @@ class FellerLight(LightEntity):
 
     def turn_on(self, **kwargs: Any) -> None:
         """Instruct the light to turn on.
-
         You can skip the brightness part if your light does not support
         brightness control.
         """
@@ -219,7 +215,6 @@ class FellerLight(LightEntity):
         convertedBrightness = round(self._brightness*39.22)
         if convertedBrightness > 10000:
             convertedBrightness = 10000
-
 
         ip = self._host
         response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'bri': convertedBrightness})
@@ -237,6 +232,7 @@ class FellerLight(LightEntity):
         self._state = False
         self._brightness = response.json()["data"]["target_state"]["bri"]/39.22
 
+
     def updatestate(self):
         ip = self._host
         # _LOGGER.info("requesting http://"+ip+"/api/loads/"+self._id)
@@ -245,7 +241,6 @@ class FellerLight(LightEntity):
 
     def update(self) -> None:
         """Fetch new state data for this light.
-
         This is the only method that should fetch new data for Home Assistant.
         """
 
@@ -260,7 +255,8 @@ class FellerLight(LightEntity):
         else:
             self._state = False
         self._brightness = load["data"]["state"]["bri"]/39.22
-    
+
+
     def updateExternal(self, brightness):
         self._brightness = brightness/39.22
         if self._brightness > 0:
@@ -268,5 +264,3 @@ class FellerLight(LightEntity):
         else:
             self._state = False
         self.schedule_update_ha_state()
-
-
