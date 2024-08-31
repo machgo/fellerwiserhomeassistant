@@ -156,6 +156,7 @@ class FellerLight(LightEntity):
         self._id = str(data["id"])
         self._state = None
         self._brightness = None
+        self._oldbrightness = 255
         self._host = host
         self._apikey = apikey
         self._type = data["type"]
@@ -211,7 +212,13 @@ class FellerLight(LightEntity):
         You can skip the brightness part if your light does not support
         brightness control.
         """
-        self._brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
+        if ATTR_BRIGHTNESS in kwargs:
+            _LOGGER.info("found brightness in arguments, this is a dimming call")
+            self._brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
+        else:
+            _LOGGER.info("no brightness in arguments, this is a turn on call, try to use oldbrightness")
+            self._brightness = self._oldbrightness
+
         convertedBrightness = round(self._brightness*39.22)
         if convertedBrightness > 10000:
             convertedBrightness = 10000
@@ -226,6 +233,7 @@ class FellerLight(LightEntity):
     def turn_off(self, **kwargs: Any) -> None:
         """Instruct the light to turn off."""
         ip = self._host
+        self._oldbrightness = self._brightness
         response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'bri': 0})
         _LOGGER.info(response.json())
         # {'data': {'id': 6, 'target_state': {'bri': 0}}, 'status': 'success'}
