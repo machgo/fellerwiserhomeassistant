@@ -156,7 +156,6 @@ class FellerLight(LightEntity):
         self._id = str(data["id"])
         self._state = None
         self._brightness = None
-        self._oldbrightness = 255
         self._host = host
         self._apikey = apikey
         self._type = data["type"]
@@ -206,39 +205,45 @@ class FellerLight(LightEntity):
             return {"onoff"}
         return {"brightness"}
 
-
+    
     def turn_on(self, **kwargs: Any) -> None:
         """Instruct the light to turn on.
+
         You can skip the brightness part if your light does not support
         brightness control.
         """
-        if ATTR_BRIGHTNESS in kwargs:
-            _LOGGER.info("found brightness in arguments, this is a dimming call")
-            self._brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
+        
+        if not kwargs: 
+            ip = self._host
+            response = requests.put("http://"+ip+"/api/loads/"+self._id+"/ctrl", headers= {'authorization':'Bearer ' + self._apikey}, json={'button': 'on', 'event': 'click'})
+            _LOGGER.info(response.json())
+            self._state = True
+            response = requests.get("http://"+ip+"/api/loads/"+self._id, headers= {'authorization':'Bearer ' + self._apikey})
+            self._brightness = response.json()["data"]["state"]["bri"]/39.22
+        
         else:
-            _LOGGER.info("no brightness in arguments, this is a turn on call, try to use oldbrightness")
-            self._brightness = self._oldbrightness
+            self._brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
+            convertedBrightness = round(self._brightness*39.22)
+            if convertedBrightness > 10000:
+                convertedBrightness = 10000
 
-        convertedBrightness = round(self._brightness*39.22)
-        if convertedBrightness > 10000:
-            convertedBrightness = 10000
-
-        ip = self._host
-        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'bri': convertedBrightness})
-        _LOGGER.info(response.json())
-        self._state = True
-        self._brightness = response.json()["data"]["target_state"]["bri"]/39.22
+            ip = self._host
+            response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'bri': convertedBrightness})
+            _LOGGER.info(response.json())
+            self._state = True
+            self._brightness = response.json()["data"]["target_state"]["bri"]/39.22
 
 
     def turn_off(self, **kwargs: Any) -> None:
         """Instruct the light to turn off."""
         ip = self._host
         self._oldbrightness = self._brightness
-        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/target_state", headers= {'authorization':'Bearer ' + self._apikey}, json={'bri': 0})
+        response = requests.put("http://"+ip+"/api/loads/"+self._id+"/ctrl", headers= {'authorization':'Bearer ' + self._apikey}, json={'button': 'off', 'event': 'click'})
         _LOGGER.info(response.json())
         # {'data': {'id': 6, 'target_state': {'bri': 0}}, 'status': 'success'}
         self._state = False
-        self._brightness = response.json()["data"]["target_state"]["bri"]/39.22
+        response = requests.get("http://"+ip+"/api/loads/"+self._id, headers= {'authorization':'Bearer ' + self._apikey})
+        self._brightness = response.json()["data"]["state"]["bri"]/39.22
 
 
     def updatestate(self):
