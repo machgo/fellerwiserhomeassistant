@@ -1,3 +1,4 @@
+"""Platform for cover integration."""
 from __future__ import annotations
 
 import logging
@@ -8,22 +9,19 @@ import asyncio
 import json
 import socket
 
-
 import voluptuous as vol
 from .const import (
     DOMAIN,
 )
 
 # Import the device class from the component that you want to support
-import homeassistant.helpers.config_validation as cv
-from homeassistant.components.cover import (ATTR_POSITION, PLATFORM_SCHEMA,
-                                            CoverEntity)
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.components.cover import (
+    ATTR_POSITION,
+    CoverEntity,
+)
 
 _LOGGER = logging.getLogger(__name__)
+
 
 async def hello(covers, hass, host, apikey):
     ip = host
@@ -32,7 +30,7 @@ async def hello(covers, hass, host, apikey):
     # outer loop restarted every time the connection fails
         _LOGGER.info('Creating new connection...')
         try:
-            async with websockets.connect("ws://"+ip+"/api", extra_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
+            async with websockets.connect("ws://"+ip+"/api", additional_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
                 while True:
                 # listener loop
                     try:
