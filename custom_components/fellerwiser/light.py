@@ -15,21 +15,12 @@ from .const import (
 )
 
 # Import the device class from the component that you want to support
-import homeassistant.helpers.config_validation as cv
-from homeassistant.components.light import (ATTR_BRIGHTNESS, PLATFORM_SCHEMA,
-                                            LightEntity)
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.components.light import (
+    ATTR_BRIGHTNESS,
+    LightEntity,
+)
 
 _LOGGER = logging.getLogger(__name__)
-
-# Validation of the user's configuration
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required('host'): cv.string,
-    vol.Required('apikey'): cv.string,
-})
 
 
 async def hello(lights, hass, host, apikey):
@@ -39,7 +30,7 @@ async def hello(lights, hass, host, apikey):
     # outer loop restarted every time the connection fails
         _LOGGER.info('Creating new connection...')
         try:
-            async with websockets.connect("ws://"+ip+"/api", extra_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
+            async with websockets.connect("ws://"+ip+"/api", additional_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
                 while True:
                 # listener loop
                     try:
@@ -88,34 +79,6 @@ async def hello(lights, hass, host, apikey):
             _LOGGER.info("KeyError")
             continue
 
-    ip = host
-    async with websockets.connect("ws://"+ip+"/api", extra_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
-        while True:
-            result =  await ws.recv()
-            _LOGGER.info("Received '%s'" % result)
-            data = json.loads(result)
-            # {"load":{"id":6,"state":{"bri":10000,"flags":{"over_current":0,"fading":0,"noise":0,"direction":0,"over_temperature":0}}}}
-
-            doUpdate = False
-
-            #dim/dali
-            if "flags" in data["load"]["state"]:
-                if "fading" in data["load"]["state"]["flags"]:
-                    if data["load"]["state"]["flags"]["fading"] == 0:
-                        doUpdate = True
-                else:
-                    doUpdate = True
-            #onoff
-            else:
-                doUpdate = True
-            if doUpdate:
-                for l in lights:
-                    if l.unique_id == "light-"+str(data["load"]["id"]):
-                        _LOGGER.info("found entity to update")
-                        l.updateExternal(data["load"]["state"]["bri"])
-
-        ws.close()
-
 
 def updatedata(host, apikey):
     #ip = "192.168.0.18"
@@ -148,8 +111,8 @@ class FellerLight(LightEntity):
 
     def __init__(self, data, host, apikey) -> None:
         """Initialize an AwesomeLight."""
-        # OLD {'name': '00005341_0', 'device': '00005341', 'channel': 0, 'type': 'dim', 'id': 14, 'unused': False}
-        # NEW {'name': '00005341_0', 'device': '00005341', 'channel': 0, 'type': 'dali', 'id': 14, 'unused': False}
+        # Phasecut Dimmer {'name': '00005341_0', 'device': '00005341', 'channel': 0, 'type': 'dim', 'id': 14, 'unused': False}
+        # DALI Dimmer {'name': '00005341_0', 'device': '00005341', 'channel': 0, 'type': 'dali', 'id': 14, 'unused': False}
 
         self._data = data
         self._name = data["name"]
