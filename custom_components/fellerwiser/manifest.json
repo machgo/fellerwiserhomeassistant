@@ -13,6 +13,5 @@
     "@machgo"
   ],
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/machgo/fellerwiserhomeassistant/issues",
-
+  "issue_tracker": "https://github.com/machgo/fellerwiserhomeassistant/issues"
 }
