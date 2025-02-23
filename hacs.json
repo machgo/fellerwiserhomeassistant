@@ -1,5 +1,6 @@
 {
     "name": "Feller Wiser Integration for Home Assistant",
-    "homeassistant": "2023.5",
+    "homeassistant": "2025.1",
     "render_readme": false
+
 }
