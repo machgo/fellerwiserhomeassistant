@@ -1,17 +1,17 @@
 {
   "domain": "fellerwiser",
-  "version": "1.0.1",
   "name": "Feller Wiser",
-  "config_flow": true,
-  "documentation": "https://github.com/machgo/fellerwiserhomeassistant",
-  "requirements": ["websockets"],
-  "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
-  "dependencies": [],
   "codeowners": [
     "@machgo"
   ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/machgo/fellerwiserhomeassistant",
+  "homekit": {},
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/machgo/fellerwiserhomeassistant/issues"
+  "issue_tracker": "https://github.com/machgo/fellerwiserhomeassistant/issues",
+  "requirements": ["websockets"],
+  "ssdp": [],
+  "version": "1.0.1",
+  "zeroconf": []
 }
