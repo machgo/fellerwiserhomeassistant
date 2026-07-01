@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 
+from typing import Any
+
 import requests
 import websockets
 import asyncio
@@ -102,7 +104,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if value["type"] in ["dim", "dali", "onoff"]:
             lights.append(FellerLight(value, host, apikey))
 
-    asyncio.get_event_loop().create_task(hello(lights, hass, host, apikey))
+    task = hass.async_create_task(hello(lights, hass, host, apikey))
+    entry.async_on_unload(task.cancel)
     async_add_entities(lights, True)
 
 
