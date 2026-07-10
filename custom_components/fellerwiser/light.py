@@ -1,20 +1,13 @@
 """Platform for light integration."""
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
-
 from typing import Any
 
 import requests
 import websockets
-import asyncio
-import json
-import socket
-
-import voluptuous as vol
-from .const import (
-    DOMAIN,
-)
 
 # Import the device class from the component that you want to support
 from homeassistant.components.light import (
@@ -24,78 +17,143 @@ from homeassistant.components.light import (
 
 _LOGGER = logging.getLogger(__name__)
 
+HTTP_TIMEOUT = 10
+RECONCILE_INTERVAL = 60
+RECONNECT_DELAY = 10
+WEBSOCKET_OPEN_TIMEOUT = 10
+WEBSOCKET_PING_INTERVAL = 20
+WEBSOCKET_PING_TIMEOUT = 10
+
+
+def _apply_gateway_load(lights_by_id, load):
+    """Apply one gateway load state to the matching Home Assistant entity."""
+    light = lights_by_id.get(str(load.get("id")))
+    state = load.get("state")
+    if light is None or not isinstance(state, dict) or "bri" not in state:
+        return
+
+    brightness = state["bri"]
+    if not isinstance(brightness, (int, float)):
+        return
+
+    light.update_external(brightness)
+
+
+async def _reconcile_lights(lights_by_id, hass, host, apikey):
+    """Refresh all light states from the authoritative HTTP endpoint."""
+    try:
+        response = await hass.async_add_executor_job(updatedata, host, apikey)
+        response.raise_for_status()
+        loads = response.json()["data"]
+    except (requests.RequestException, ValueError, KeyError, TypeError) as err:
+        _LOGGER.warning("Unable to reconcile light states from gateway: %s", err)
+        return
+
+    for load in loads:
+        if isinstance(load, dict):
+            _apply_gateway_load(lights_by_id, load)
+
 
 async def hello(lights, hass, host, apikey):
-    ip = host
+    """Listen for gateway events and periodically reconcile missed state."""
+    lights_by_id = {light._id: light for light in lights}
 
     while True:
-    # outer loop restarted every time the connection fails
-        _LOGGER.info('Creating new connection...')
+        _LOGGER.info("Creating new light websocket connection")
         try:
-            async with websockets.connect("ws://"+ip+"/api", additional_headers={'authorization':'Bearer ' + apikey}, ping_timeout=None) as ws:
-                while True:
-                # listener loop
-                    try:
-                        result = await asyncio.wait_for(ws.recv(), timeout=None)
-                    except (asyncio.TimeoutError, websockets.exceptions.ConnectionClosed):
-                        try:
-                            pong = await ws.ping()
-                            await asyncio.wait_for(pong, timeout=None)
-                            _LOGGER.info('Ping OK, keeping connection alive...')
-                            continue
-                        except:
-                            _LOGGER.info(
-                                'Ping error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
-                            await asyncio.sleep(10)
-                            break
-                    _LOGGER.info('Server said > {}'.format(result))
-                    data = json.loads(result)     
-                    doUpdate = False
+            async with websockets.connect(
+                "ws://" + host + "/api",
+                additional_headers={"authorization": "Bearer " + apikey},
+                open_timeout=WEBSOCKET_OPEN_TIMEOUT,
+                ping_interval=WEBSOCKET_PING_INTERVAL,
+                ping_timeout=WEBSOCKET_PING_TIMEOUT,
+            ) as ws:
+                # Events can be lost while disconnected, so every new connection
+                # starts with a snapshot from the gateway.
+                await _reconcile_lights(lights_by_id, hass, host, apikey)
+                next_reconcile = (
+                    asyncio.get_running_loop().time() + RECONCILE_INTERVAL
+                )
 
-                    #dim/dali
-                    if "flags" in data["load"]["state"]:
-                        if "fading" in data["load"]["state"]["flags"]:
-                            if data["load"]["state"]["flags"]["fading"] == 0:
-                                doUpdate = True
-                        else:
-                            doUpdate = True
-                    #onoff
-                    else:
-                        doUpdate = True
-                    if doUpdate:
-                        for l in lights:
-                            if l.unique_id == "light-"+str(data["load"]["id"]):
-                                _LOGGER.info("found entity to update")
-                                l.updateExternal(data["load"]["state"]["bri"])
-        except socket.gaierror:
-            _LOGGER.info(
-                'Socket error - retrying connection in {} sec (Ctrl-C to quit)'.format(10))
-            await asyncio.sleep(10)
-            continue
-        except ConnectionRefusedError:
-            _LOGGER.info('Nobody seems to listen to this endpoint. Please check the URL.')
-            _LOGGER.info('Retrying connection in {} sec (Ctrl-C to quit)'.format(10))
-            await asyncio.sleep(10)
-            continue
-        except KeyError:
-            _LOGGER.info("KeyError")
-            continue
+                while True:
+                    try:
+                        timeout = max(
+                            0,
+                            next_reconcile - asyncio.get_running_loop().time(),
+                        )
+                        result = await asyncio.wait_for(ws.recv(), timeout=timeout)
+                    except asyncio.TimeoutError:
+                        await _reconcile_lights(
+                            lights_by_id, hass, host, apikey
+                        )
+                        next_reconcile = (
+                            asyncio.get_running_loop().time()
+                            + RECONCILE_INTERVAL
+                        )
+                        continue
+
+                    try:
+                        data = json.loads(result)
+                        load = data["load"]
+                        state = load["state"]
+                    except (json.JSONDecodeError, KeyError, TypeError) as err:
+                        _LOGGER.debug(
+                            "Ignoring unsupported websocket message: %s", err
+                        )
+                        continue
+
+                    if not isinstance(load, dict) or not isinstance(state, dict):
+                        _LOGGER.debug(
+                            "Ignoring websocket message with invalid load state"
+                        )
+                        continue
+
+                    flags = state.get("flags")
+                    if not isinstance(flags, dict) or flags.get("fading", 0) == 0:
+                        _apply_gateway_load(lights_by_id, load)
+
+                    if asyncio.get_running_loop().time() >= next_reconcile:
+                        await _reconcile_lights(
+                            lights_by_id, hass, host, apikey
+                        )
+                        next_reconcile = (
+                            asyncio.get_running_loop().time()
+                            + RECONCILE_INTERVAL
+                        )
+        except asyncio.CancelledError:
+            raise
+        except (
+            OSError,
+            TimeoutError,
+            websockets.exceptions.WebSocketException,
+        ) as err:
+            _LOGGER.warning(
+                "Light websocket disconnected (%s); retrying in %s seconds",
+                err,
+                RECONNECT_DELAY,
+            )
+            await asyncio.sleep(RECONNECT_DELAY)
 
 
 def updatedata(host, apikey):
     #ip = "192.168.0.18"
     ip = host
     key = apikey
-    return requests.get("http://"+ip+"/api/loads", headers= {'authorization':'Bearer ' + key})
+    return requests.get(
+        "http://" + ip + "/api/loads",
+        headers={"authorization": "Bearer " + key},
+        timeout=HTTP_TIMEOUT,
+    )
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     host = entry.data['host']
     apikey = entry.data['apikey']
 
-    _LOGGER.info("---------------------------------------------- %s %s", host, apikey)
+    _LOGGER.info("Setting up lights for Feller Wiser gateway %s", host)
 
     response = await hass.async_add_executor_job(updatedata, host, apikey)
+    response.raise_for_status()
 
     loads = response.json()
 
@@ -104,9 +162,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if value["type"] in ["dim", "dali", "onoff"]:
             lights.append(FellerLight(value, host, apikey))
 
+    async_add_entities(lights, True)
     task = hass.async_create_task(hello(lights, hass, host, apikey))
     entry.async_on_unload(task.cancel)
-    async_add_entities(lights, True)
 
 
 class FellerLight(LightEntity):
@@ -236,10 +294,15 @@ class FellerLight(LightEntity):
         self._brightness = load["data"]["state"]["bri"]/39.22
 
 
-    def updateExternal(self, brightness):
+    def update_external(self, brightness):
+        """Apply a brightness update received from the gateway."""
         self._brightness = brightness/39.22
         if self._brightness > 0:
             self._state = True
         else:
             self._state = False
         self.schedule_update_ha_state()
+
+    def updateExternal(self, brightness):
+        """Apply a gateway update using the legacy method name."""
+        self.update_external(brightness)

@@ -9,7 +9,8 @@ The integration connects directly to the Feller Wiser gateway over the local net
 - Light entities for Feller Wiser `dim`, `dali`, and `onoff` loads
 - Cover entities for Feller Wiser `motor` loads
 - Button entities for Feller Wiser scenes
-- Live state updates for lights and covers through the gateway websocket
+- Live state updates through the gateway websocket
+- Periodic HTTP reconciliation of light states to recover missed events
 - Local push integration type, no cloud service required
 
 ## Supported Entities
