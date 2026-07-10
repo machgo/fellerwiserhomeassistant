@@ -12,6 +12,6 @@
   "issue_tracker": "https://github.com/machgo/fellerwiserhomeassistant/issues",
   "requirements": ["requests", "websockets"],
   "ssdp": [],
-  "version": "1.0.3",
+  "version": "1.0.4",
   "zeroconf": []
 }
